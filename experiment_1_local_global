@@ -1,44 +1,40 @@
-"""
-GOLD STANDARD FINAL: LOCAL-GLOBAL (8-BIT + VARIABLE TRIALS REPAIRED)
---------------------------------------------------------------------
-- HARDWARE (8 BITS):
-    * Pin 8/9: Estimuladores (L/R).
-    * Pin 7: Tarea.
-    * Pin 6: Global Dev.
-    * Pin 5: Local Dev.
-    * Pin 2-4: Beats.
-
-- METODOLOGÍA:
-    * 8 Bloques.
-    * TRIALS VARIABLES: 30 Habituación + (120 a 130) Test. <--- CORREGIDO
-    * 20% Global Deviants.
-    * Visual: 5 Targets únicos/bloque, Anti-repetición.
-"""
+# Local-global task
+# 8-bit hardware setup: 
+# * Pin 8/9: Stimulator (L/R). 
+# * Pin 7: Task.
+# * Pin 6: Global Dev.
+# * Pin 5: Local Dev.
+# * Pin 2-4: Beats.
+#
+# Methodology
+# 8 blocks.
+# Variable trials: 30 Habituation + (120 to 130) Test. <--- I corrected this here.
+# 20% Global Deviants.
+# Visual: I set 5 unique targets per block, with anti-repetition.
 
 import random
 import os
 import pandas as pd
 from psychopy import core, parallel, gui, visual, event
 
-# ==============================================================================
-# 1. PARÁMETROS
-# ==============================================================================
-# --- Estructura Experimental ---
-HABITUATION_TRIALS = 25       
-GLOBAL_DEVIANT_PCT = 0.20     
-# (N_TEST_TOTAL se calcula dinámicamente en cada bloque: 120-130)
+# 1. PARAMETERS
 
-# --- Tiempos ---
-SOA_MS = 150                  
-ACTIVE_BEATS = [1, 4, 5]      
-ITI_VALUES = range(1350, 1651, 50) 
+# Experimental Structure
+HABITUATION_TRIALS = 25
+GLOBAL_DEVIANT_PCT = 0.20
+# (I calculate N_TEST_TOTAL dynamically for each of my blocks: 120-130)
 
-PRE_STIM_BUFFER = 8.0   
-POST_STIM_BUFFER = 8.0  
+# Timings
+SOA_MS = 150
+ACTIVE_BEATS = [1, 4, 5]
+ITI_VALUES = range(1350, 1651, 50)
 
-# --- Visual ---
+PRE_STIM_BUFFER = 8.0
+POST_STIM_BUFFER = 8.0
+
+# Visual Settings
 BG_COLOR = [0.5, 0.5, 0.5]
-VISUAL_COLORS = ['cyan', '#8B8000', 'black', 'magenta', 'red'] 
+VISUAL_COLORS = ['cyan', '#8B8000', 'black', 'magenta', 'red']
 VISUAL_ON_S = 0.45
 VISUAL_OFF_S = 0.06
 VISUAL_CYCLE = VISUAL_ON_S + VISUAL_OFF_S
@@ -47,12 +43,12 @@ LETTERS_BASE = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
                 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 STIM_POOL = [L.upper() for L in LETTERS_BASE] + [L.lower() for L in LETTERS_BASE]
 
-TARGETS_PER_BLOCK = 4      
+TARGETS_PER_BLOCK = 4
 TARGET_PROBABILITY = 0.35
 MAX_NON_TARGET_STREAK = 4
 MAX_TARGET_STREAK = 2
 
-# --- Hardware ---
+# Hardware
 EEG_PORT_ADDRESS = 0x0378
 PULSE_DURATION_S = 0.005
 
@@ -65,23 +61,20 @@ except:
         def setData(self, val): pass
     port_eeg = DummyPort()
 
-# ==============================================================================
-# 2. FUNCIONES DE TRIGGER (8 BITS)
-# ==============================================================================
+# 2. TRIGGER FUNCTIONS (8 BITS)
+
 def send_trigger(code):
     port_eeg.setData(int(code))
     core.wait(PULSE_DURATION_S)
     port_eeg.setData(0)
 
 def encode_trigger(beat, side, local_kind, global_kind, is_visual_task):
-    """
-    [Bit 7]: Right Stim (128) -> Pin 9
-    [Bit 6]: Left Stim  (64)  -> Pin 8
-    [Bit 5]: Task Type  (32)  -> Pin 7
-    [Bit 4]: Global Dev (16)  -> Pin 6
-    [Bit 3]: Local Dev  (8)   -> Pin 5
-    [Bit 0-2]: Beat (1-7)     -> Pin 2,3,4
-    """
+    # [Bit 7]: Right Stim (128) -> Pin 9
+    # [Bit 6]: Left Stim  (64)  -> Pin 8
+    # [Bit 5]: Task Type  (32)  -> Pin 7
+    # [Bit 4]: Global Dev (16)  -> Pin 6
+    # [Bit 3]: Local Dev  (8)   -> Pin 5
+    # [Bit 0-2]: Beat (1-7)     -> Pin 2,3,4
     trigger = 0
     trigger |= (beat & 0b111)
     if local_kind == 'LD': trigger |= 8
@@ -100,9 +93,8 @@ def decode_trigger_to_text(trig):
     beat = trig & 7
     return f"[{task}] {side} | {loc}-{glob} | Beat {beat} (Code: {trig})"
 
-# ==============================================================================
-# 3. GUI Y SETUP
-# ==============================================================================
+# 3. GUI AND SETUP
+
 dlg = gui.Dlg(title="LOCAL-GLOBAL (FINAL VARIABLE)")
 dlg.addField("Subject ID:", "001")
 dlg.addField("Order:", choices=["Visual First", "Tactile First", "Interleaved"])
@@ -123,7 +115,7 @@ available_letters = LETTERS_BASE.copy()
 random.shuffle(available_letters)
 session_targets_pool = [available_letters[i:i+TARGETS_PER_BLOCK] for i in range(0, 20, TARGETS_PER_BLOCK)]
 
-# Planificación
+# Session Planning
 base_configs = [
     ("monotone", "right"), ("monotone", "left"),
     ("discordant", "right"), ("discordant", "left")
@@ -156,22 +148,21 @@ else:
         session_plan.append(blocks_tactile[i])
 
 win = visual.Window(
-    screen=1,                # <--- ESTO ENVÍA LA TAREA AL MONITOR EXTERNO
-    size=[1920, 1080],       # Resolución (ajústala a tu monitor si es diferente)
-    fullscr=True,            # Pantalla completa (sin bordes)
-    monitor='testMonitor',   # Perfil por defecto (no lo toques)
+    screen=1,                # <--- I USE THIS TO SEND THE TASK TO MY EXTERNAL MONITOR
+    size=[1920, 1080],       # Resolution (I need to adjust this to my monitor if it's different)
+    fullscr=True,            # Full screen (borderless)
+    monitor='testMonitor',   # Default profile (I won't touch this)
     color=BG_COLOR,
     units='height',
-    allowGUI=False,          # Oculta el ratón y menús
-    winType='pyglet'         # Ayuda con doble pantalla en Windows
+    allowGUI=False,          # I hide my mouse and menus here
+    winType='pyglet'         # This helps me with dual screens on Windows
 )
 txt_stim = visual.TextStim(win, height=0.2, font='Arial', bold=True, text='')
 fix_cross = visual.TextStim(win, text='+', height=0.05, color='black') 
 instr_stim = visual.TextStim(win, height=0.04, color='black', wrapWidth=1.2)
 
-# ==============================================================================
-# 4. GENERADOR DE TRIALS (CORREGIDO: VARIABLE)
-# ==============================================================================
+# 4. TRIAL GENERATOR (CORRECTED: I MADE IT VARIABLE)
+
 def generate_trials(block_type, base_side):
     side_alt = "left" if base_side == "right" else "right"
     seq_LS = { "sides": [base_side]*5, "local_kind": "LS" }
@@ -185,16 +176,16 @@ def generate_trials(block_type, base_side):
         item_dev = {**seq_LS, "global_kind": "GD"}
 
     trials = []
-    # 1. Habituación (Fija)
+    # 1. Habituation (Fixed)
     for _ in range(HABITUATION_TRIALS):
         t = item_std.copy(); t['phase'] = 'habituation'
         trials.append(t)
         
-    # 2. Test (### CORRECCIÓN: TOTAL VARIABLE ###)
-    # Jitter entre 120 y 130 trials para evitar predicción
+    # 2. Test (CORRECTION: TOTAL IS VARIABLE)
+    # I add a jitter between 120 and 130 trials to prevent prediction
     n_total_this_block = random.randint(120, 130)
     
-    # Redondeo del 20%
+    # Round up 20% calculation
     n_dev = int(round(n_total_this_block * GLOBAL_DEVIANT_PCT))
     n_std = n_total_this_block - n_dev    
     
@@ -202,7 +193,7 @@ def generate_trials(block_type, base_side):
     for _ in range(n_std): pool.append({**item_std, "phase": "test"})
     for _ in range(n_dev): pool.append({**item_dev, "phase": "test"})
     
-    # Anti-Consecutive GD
+    # Anti-Consecutive GD check
     while True:
         random.shuffle(pool)
         consecutive_found = False
@@ -216,9 +207,8 @@ def generate_trials(block_type, base_side):
     trials.extend(pool)
     return trials
 
-# ==============================================================================
-# 5. EJECUCIÓN DE BLOQUE
-# ==============================================================================
+# 5. BLOCK EXECUTION
+
 def run_block(run_idx, block_config):
     block_type = block_config['type']
     base_side = block_config['side']
@@ -266,7 +256,7 @@ def run_block(run_idx, block_config):
 
     total_dur = curr_t + POST_STIM_BUFFER
     
-    # --- INSTRUCCIONES ---
+    # INSTRUCTIONS
     if is_visual_task:
         target_str = ",  ".join(current_targets)
         msg = (
@@ -288,7 +278,7 @@ def run_block(run_idx, block_config):
     instr_stim.text = msg; instr_stim.draw(); win.flip()
     event.waitKeys(keyList=['space'])
     
-    # --- BUCLE TIEMPO REAL ---
+    # REAL-TIME LOOP
     block_clock = core.Clock()
     visual_cycle_start = 0.0
     idx = 0
@@ -306,7 +296,7 @@ def run_block(run_idx, block_config):
     while block_clock.getTime() < total_dur:
         now = block_clock.getTime()
         
-        # 1. VISUAL
+        # 1. VISUAL LOOP
         if is_visual_task:
             if now >= (visual_cycle_start + VISUAL_CYCLE):
                 visual_cycle_start = now
@@ -344,7 +334,7 @@ def run_block(run_idx, block_config):
             fix_cross.draw()
             win.flip()
 
-        # 2. TÁCTIL
+        # 2. TACTILE LOOP
         if idx < n_total:
             row = block_data[idx]
             if now >= row['onset_time']:
@@ -378,9 +368,8 @@ def run_block(run_idx, block_config):
         print(f" >> TACTIL: {tactile_solution}")
     print("#"*50 + "\n")
 
-# ==============================================================================
 # 6. MAIN LOOP
-# ==============================================================================
+
 for i, blk_cfg in enumerate(session_plan):
     run_block(i, blk_cfg)
     if i < len(session_plan) - 1:
